@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
     const supabase = await createServerSupabaseClient()
     const { data: { user } } = await supabase.auth.getUser()
 
-    let availableDataSources = []
-    let dataSourcesWithConfig = []
+    let availableDataSources: any[] = []
+    let dataSourcesWithConfig: any[] = []
     if (user) {
       const { data: sources } = await supabase
         .from("data_sources")
