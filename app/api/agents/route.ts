@@ -39,6 +39,50 @@ export async function GET(req: NextRequest) {
 }
 
 /**
+ * Delete an agent
+ * DELETE /api/agents?id=<agent_id>
+ */
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url)
+    const agentId = searchParams.get("id")
+
+    if (!agentId) {
+      return NextResponse.json({ error: "Agent ID is required" }, { status: 400 })
+    }
+
+    const supabase = await createServerSupabaseClient()
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    // Delete agent (RLS will ensure user has permission)
+    const { error } = await supabase
+      .from("agents")
+      .delete()
+      .eq("id", agentId)
+
+    if (error) {
+      console.error("[Agents DELETE] Error:", error)
+      return NextResponse.json(
+        { error: "Failed to delete agent" },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error: any) {
+    console.error("[Agents DELETE] Error:", error)
+    return NextResponse.json(
+      { error: error.message || "Failed to delete agent" },
+      { status: 500 }
+    )
+  }
+}
+
+/**
  * Create a new agent
  * POST /api/agents
  */

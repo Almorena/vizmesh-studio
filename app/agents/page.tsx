@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Play, History, Settings, Brain, Zap, TrendingUp } from "lucide-react"
+import { Plus, Play, History, Settings, Brain, Zap, TrendingUp, Trash2 } from "lucide-react"
 import { CreateAgentDialog } from "@/components/agents/create-agent-dialog"
 import { AgentExecutionDialog } from "@/components/agents/agent-execution-dialog"
 import { AgentExecutionsHistory } from "@/components/agents/agent-executions-history"
@@ -51,6 +51,27 @@ export default function AgentsPage() {
   const handleExecuteAgent = (agent: Agent) => {
     setSelectedAgent(agent)
     setExecuteDialogOpen(true)
+  }
+
+  const handleDeleteAgent = async (agentId: string) => {
+    if (!confirm("Are you sure you want to delete this agent?")) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/agents?id=${agentId}`, {
+        method: "DELETE",
+      })
+
+      if (response.ok) {
+        await loadAgents()
+      } else {
+        alert("Failed to delete agent")
+      }
+    } catch (error) {
+      console.error("Failed to delete agent:", error)
+      alert("Failed to delete agent")
+    }
   }
 
   // Pre-built agent templates
@@ -169,6 +190,14 @@ export default function AgentsPage() {
                       </Button>
                       <Button variant="outline" size="sm">
                         <Settings className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleDeleteAgent(agent.id)}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </CardContent>
