@@ -54,10 +54,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   const signInWithGoogle = async () => {
+    // Add timestamp to bypass Vercel edge cache
+    const cacheBuster = Date.now()
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?t=${cacheBuster}`,
       },
     })
     if (error) throw error
