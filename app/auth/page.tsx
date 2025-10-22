@@ -20,25 +20,9 @@ export default function AuthPage() {
   // Redirect to home if user is already authenticated
   useEffect(() => {
     if (user) {
-      console.log("✅ User authenticated, redirecting to home:", user.email)
       router.push("/")
-    } else {
-      console.log("❌ No user authenticated")
     }
   }, [user, router])
-
-  // Debug: Log user state changes
-  useEffect(() => {
-    console.log("🔄 User state:", user ? `Logged in as ${user.email}` : "Not logged in")
-
-    // TEMPORARY: Visual alert to verify code is running
-    if (typeof window !== 'undefined') {
-      const debugDiv = document.getElementById('debug-info') as HTMLDivElement | null
-      if (debugDiv) {
-        debugDiv.textContent = `User state: ${user ? `✅ Logged in as ${user.email}` : "❌ Not logged in"}`
-      }
-    }
-  }, [user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,11 +59,6 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* TEMPORARY DEBUG INFO */}
-      <div id="debug-info" className="fixed top-0 left-0 right-0 bg-yellow-300 text-black p-2 text-center font-mono text-sm z-50">
-        Initializing...
-      </div>
-
       {/* Header */}
       <header className="nav-header">
         <div className="container-app">
