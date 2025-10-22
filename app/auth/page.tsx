@@ -20,9 +20,17 @@ export default function AuthPage() {
   // Redirect to home if user is already authenticated
   useEffect(() => {
     if (user) {
+      console.log("✅ User authenticated, redirecting to home:", user.email)
       router.push("/")
+    } else {
+      console.log("❌ No user authenticated")
     }
   }, [user, router])
+
+  // Debug: Log user state changes
+  useEffect(() => {
+    console.log("🔄 User state:", user ? `Logged in as ${user.email}` : "Not logged in")
+  }, [user])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
