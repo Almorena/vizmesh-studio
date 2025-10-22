@@ -15,15 +15,23 @@ import { generateSpotifyDataSourceConfig } from "@/lib/integrations/spotify"
 import Link from "next/link"
 
 interface FormFields {
-  provider?: string
-  clientId?: string
-  clientSecret?: string
-  apiKey?: string
-  baseUrl?: string
-  username?: string
-  password?: string
-  token?: string
-  scopes?: string
+  provider: string
+  clientId: string
+  clientSecret: string
+  apiKey: string
+  baseUrl: string
+  username: string
+  password: string
+  token: string
+  scopes: string
+}
+
+interface NewSource {
+  name: string
+  type: string
+  config: Record<string, any>
+  authType: string
+  description: string
 }
 
 interface DataSource {
@@ -51,7 +59,7 @@ export default function IntegrationsPage() {
   const [saving, setSaving] = useState(false)
   const [editingSource, setEditingSource] = useState<DataSource | null>(null)
 
-  const [newSource, setNewSource] = useState({
+  const [newSource, setNewSource] = useState<NewSource>({
     name: "",
     type: "api",
     config: {},
