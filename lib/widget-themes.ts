@@ -389,6 +389,6 @@ export function getCustomThemeCSS(theme: WidgetTheme): string {
       `
 
     default:
-      return WIDGET_THEMES[theme].css
+      return getThemeCSS(theme)
   }
 }

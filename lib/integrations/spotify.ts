@@ -270,7 +270,7 @@ export const SPOTIFY_INTEGRATION = {
   description: "Connect your Spotify account to access listening history, playlists, and music data",
   icon: "music",
   color: "#1DB954", // Spotify green
-  authType: "oauth2",
+  authType: "oauth2" as const,
   baseUrl: SPOTIFY_BASE_URL,
   scopes: SPOTIFY_SCOPES,
   endpoints: SPOTIFY_ENDPOINTS,

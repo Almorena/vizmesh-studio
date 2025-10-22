@@ -66,7 +66,13 @@ export function calculateCost(
   inputTokens: number,
   outputTokens: number
 ): number {
-  const pricing = API_PRICING[provider]?.[model as keyof typeof API_PRICING[typeof provider]]
+  const providerPricing = API_PRICING[provider]
+  if (!providerPricing) {
+    console.warn(`No pricing found for ${provider}`)
+    return 0
+  }
+
+  const pricing = providerPricing[model as keyof typeof providerPricing] as { input: number; output: number } | undefined
 
   if (!pricing) {
     console.warn(`No pricing found for ${provider}/${model}`)

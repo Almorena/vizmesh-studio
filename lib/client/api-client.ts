@@ -32,7 +32,21 @@ export async function fetchWithClient(
   // Build headers with client_id
   const finalHeaders: Record<string, string> = {
     "Content-Type": "application/json",
-    ...(typeof headers === "object" ? headers : {}),
+  }
+
+  // Convert headers to plain object if needed
+  if (headers) {
+    if (headers instanceof Headers) {
+      headers.forEach((value, key) => {
+        finalHeaders[key] = value
+      })
+    } else if (Array.isArray(headers)) {
+      headers.forEach(([key, value]) => {
+        finalHeaders[key] = value
+      })
+    } else if (typeof headers === "object") {
+      Object.assign(finalHeaders, headers)
+    }
   }
 
   if (activeClientId) {
