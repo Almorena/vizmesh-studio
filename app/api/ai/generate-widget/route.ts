@@ -468,8 +468,8 @@ function findMatchingDataSource(prompt: string, sources: any[]): any | null {
 
   for (const source of sources) {
     const provider = source.config?.provider?.toLowerCase()
-    if (provider && dataTypeKeywords[provider]) {
-      const keywords = dataTypeKeywords[provider]
+    if (provider && provider in dataTypeKeywords) {
+      const keywords = dataTypeKeywords[provider as keyof typeof dataTypeKeywords]
       if (keywords.some(kw => promptLower.includes(kw))) {
         return source
       }
