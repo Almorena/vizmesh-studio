@@ -46,6 +46,11 @@ export function saveCustomThemes(themes: CustomThemes): void {
  * Load custom theme configurations from localStorage
  */
 export function loadCustomThemes(): CustomThemes | null {
+  // Check if we're in the browser (not during SSR)
+  if (typeof window === 'undefined') {
+    return null
+  }
+
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (!stored) return null
@@ -71,6 +76,11 @@ export function clearCustomThemes(): void {
  * Check if custom themes are stored
  */
 export function hasCustomThemes(): boolean {
+  // Check if we're in the browser (not during SSR)
+  if (typeof window === 'undefined') {
+    return false
+  }
+
   try {
     return localStorage.getItem(STORAGE_KEY) !== null
   } catch (error) {
