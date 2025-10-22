@@ -299,7 +299,7 @@ export default function IntegrationsPage() {
         return
       }
 
-      let config = { ...newSource.config }
+      let config: Record<string, any> = { ...newSource.config }
 
       if (showAdvanced) {
         try {
