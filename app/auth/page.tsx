@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth/auth-context"
 import { Button } from "@/components/ui/button"
@@ -9,13 +9,20 @@ import { Loader2 } from "lucide-react"
 
 export default function AuthPage() {
   const router = useRouter()
-  const { signIn, signUp, signInWithGoogle } = useAuth()
+  const { user, signIn, signUp, signInWithGoogle } = useAuth()
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [error, setError] = useState("")
+
+  // Redirect to home if user is already authenticated
+  useEffect(() => {
+    if (user) {
+      router.push("/")
+    }
+  }, [user, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
