@@ -1,26 +1,34 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { AlertCircle } from "lucide-react"
+import { getCustomThemeCSS, getWidgetBackground, type WidgetTheme } from "@/lib/widget-themes"
 
 interface WidgetRendererProps {
   componentCode: string
   data?: any
+  theme?: WidgetTheme
+  title?: string
   className?: string
+  widgetIndex?: number
 }
 
 /**
  * Safely renders AI-generated React components in an isolated iframe
  * Uses srcdoc and postMessage for secure communication
  */
-export function WidgetRenderer({ componentCode, data, className }: WidgetRendererProps) {
+export function WidgetRenderer({ componentCode, data, theme, title, className, widgetIndex = 0 }: WidgetRendererProps) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // Reset loading when data changes
+  useEffect(() => {
+    // Data changed, component will re-render
+  }, [data])
 
   useEffect(() => {
     // Listen for messages from iframe
     const handleMessage = (event: MessageEvent) => {
-      console.log("[WidgetRenderer] Received message:", event.data)
       if (event.data.type === "WIDGET_READY") {
         setLoading(false)
         setError(null)
@@ -35,7 +43,6 @@ export function WidgetRenderer({ componentCode, data, className }: WidgetRendere
     // Set a timeout to stop loading after 10 seconds
     const timeout = setTimeout(() => {
       setLoading(false)
-      console.log("[WidgetRenderer] Timeout reached, assuming widget loaded")
     }, 10000)
 
     return () => {
@@ -44,18 +51,18 @@ export function WidgetRenderer({ componentCode, data, className }: WidgetRendere
     }
   }, [])
 
-  // Reset loading state when code or data changes
+  // Reset loading state when code, data, or theme changes
   useEffect(() => {
     setLoading(true)
     setError(null)
 
-    // Auto-hide loading after 3 seconds if no message received
+    // Auto-hide loading after 1 second
     const autoHideTimeout = setTimeout(() => {
       setLoading(false)
-    }, 3000)
+    }, 1000)
 
     return () => clearTimeout(autoHideTimeout)
-  }, [componentCode, data])
+  }, [componentCode, data, theme])
 
   if (error) {
     return (
@@ -69,7 +76,12 @@ export function WidgetRenderer({ componentCode, data, className }: WidgetRendere
     )
   }
 
-  const sandboxHTML = createSandboxHTML(componentCode, data)
+  const sandboxHTML = createSandboxHTML(componentCode, data, theme, title, widgetIndex)
+
+  // Create a stable key based on data content to force iframe recreation when data changes
+  const iframeKey = useMemo(() => {
+    return `iframe-${JSON.stringify(data).slice(0, 100)}-${componentCode.length}`
+  }, [data, componentCode])
 
   return (
     <div className={`relative ${className}`}>
@@ -79,9 +91,10 @@ export function WidgetRenderer({ componentCode, data, className }: WidgetRendere
         </div>
       )}
       <iframe
+        key={iframeKey}
         srcDoc={sandboxHTML}
         className="w-full h-full border-0"
-        sandbox="allow-scripts"
+        sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
         title="Widget Sandbox"
       />
     </div>
@@ -92,7 +105,17 @@ export function WidgetRenderer({ componentCode, data, className }: WidgetRendere
  * Creates the HTML document for the iframe sandbox
  * Includes React, Recharts, and the AI-generated component code
  */
-function createSandboxHTML(componentCode: string, data: any): string {
+function createSandboxHTML(componentCode: string, data: any, theme?: WidgetTheme, title?: string, widgetIndex: number = 0): string {
+  // Serialize data and title safely
+  const dataJSON = JSON.stringify(data || {});
+  const titleJSON = JSON.stringify(title || '');
+
+  // Get theme CSS if theme is specified (with custom colors if available)
+  const themeCSS = theme ? getCustomThemeCSS(theme) : '';
+
+  // Get widget background color based on theme and index
+  const widgetBg = theme ? getWidgetBackground(theme, widgetIndex) : '';
+
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -101,16 +124,72 @@ function createSandboxHTML(componentCode: string, data: any): string {
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone@7.23.5/babel.min.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <style>
-    body {
-      margin: 0;
-      padding: 16px;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    }
+    /* Base styles */
     * {
+      margin: 0;
+      padding: 0;
       box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      ${widgetBg ? `background: ${widgetBg} !important;` : 'background: #f0f0f0 !important;'}
+    }
+
+    #root {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    /* Theme CSS */
+    ${themeCSS}
+
+    /* Utility classes */
+    .chart-container {
+      max-width: 100%;
+      margin: 0 auto;
+      height: 100%;
+    }
+
+    .data-card {
+      margin-bottom: 1.5rem;
+    }
+
+    h1 { font-size: 2.5rem; margin-bottom: 1rem; color: inherit !important; }
+    h2 { font-size: 2rem; margin-bottom: 0.75rem; color: inherit !important; }
+    h3 { font-size: 1.5rem; margin-bottom: 0.5rem; color: inherit !important; }
+    p { margin-bottom: 0.5rem; line-height: 1.6; color: inherit !important; }
+
+    /* Force visibility of all text elements */
+    div, span, li, td, th, label {
+      color: inherit !important;
+    }
+
+    .metric {
+      font-size: 3rem;
+      font-weight: 600;
+      margin: 1rem 0;
+    }
+
+    .metric-label {
+      font-size: 0.875rem;
+      opacity: 0.8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
   </style>
 </head>
@@ -118,23 +197,15 @@ function createSandboxHTML(componentCode: string, data: any): string {
   <div id="root"></div>
 
   <script>
-    console.log('[Sandbox] Starting initialization');
-    console.log('[Sandbox] Babel available:', typeof Babel !== 'undefined');
+    // Make data and title available globally
+    window.widgetData = ${dataJSON};
+    window.widgetTitle = ${titleJSON};
 
-    // Wait for all libraries to load
+    // Data and title are available as window.widgetData and window.widgetTitle
+
+    // Wait for Chart.js and Babel to load
     window.addEventListener('load', function() {
-      console.log('[Sandbox] Window loaded');
-      console.log('[Sandbox] React available:', typeof React !== 'undefined');
-      console.log('[Sandbox] ReactDOM available:', typeof ReactDOM !== 'undefined');
-      console.log('[Sandbox] Chart.js available:', typeof Chart !== 'undefined');
-
       try {
-        // Make React hooks available globally
-        const { useState, useEffect, useRef } = React;
-        window.useState = useState;
-        window.useEffect = useEffect;
-        window.useRef = useRef;
-
         // Register Chart.js components
         if (window.Chart) {
           const { Chart: ChartJS } = window;
@@ -149,152 +220,184 @@ function createSandboxHTML(componentCode: string, data: any): string {
             ChartJS.Tooltip,
             ChartJS.Legend
           );
-
-          // Create React wrapper components for Chart.js
-          window.BarChart = function BarChart({ data, options }) {
-            const canvasRef = useRef(null);
-            const chartRef = useRef(null);
-
-            useEffect(() => {
-              if (canvasRef.current) {
-                if (chartRef.current) {
-                  chartRef.current.destroy();
-                }
-                chartRef.current = new ChartJS(canvasRef.current, {
-                  type: 'bar',
-                  data: data,
-                  options: options || {}
-                });
-              }
-              return () => {
-                if (chartRef.current) {
-                  chartRef.current.destroy();
-                }
-              };
-            }, [data, options]);
-
-            return React.createElement('canvas', { ref: canvasRef });
-          };
-
-          window.LineChart = function LineChart({ data, options }) {
-            const canvasRef = useRef(null);
-            const chartRef = useRef(null);
-
-            useEffect(() => {
-              if (canvasRef.current) {
-                if (chartRef.current) {
-                  chartRef.current.destroy();
-                }
-                chartRef.current = new ChartJS(canvasRef.current, {
-                  type: 'line',
-                  data: data,
-                  options: options || {}
-                });
-              }
-              return () => {
-                if (chartRef.current) {
-                  chartRef.current.destroy();
-                }
-              };
-            }, [data, options]);
-
-            return React.createElement('canvas', { ref: canvasRef });
-          };
-
-          window.PieChart = function PieChart({ data, options }) {
-            const canvasRef = useRef(null);
-            const chartRef = useRef(null);
-
-            useEffect(() => {
-              if (canvasRef.current) {
-                if (chartRef.current) {
-                  chartRef.current.destroy();
-                }
-                chartRef.current = new ChartJS(canvasRef.current, {
-                  type: 'pie',
-                  data: data,
-                  options: options || {}
-                });
-              }
-              return () => {
-                if (chartRef.current) {
-                  chartRef.current.destroy();
-                }
-              };
-            }, [data, options]);
-
-            return React.createElement('canvas', { ref: canvasRef });
-          };
-
-          console.log('[Sandbox] Chart.js components created successfully');
-        } else {
-          console.error('[Sandbox] Chart.js not found!');
         }
 
-        // Execute AI-generated component code via Babel
-        console.log('[Sandbox] Creating Babel script');
+        // Create simple React wrapper components for Chart.js
+        window.BarChart = function({ data, options }) {
+          const canvasRef = React.useRef(null);
 
-        if (typeof Babel === 'undefined') {
-          console.error('[Sandbox] Babel not loaded!');
-          window.parent.postMessage({
-            type: 'WIDGET_ERROR',
-            error: 'Babel transpiler not loaded'
-          }, '*');
-          return;
-        }
-
-        try {
-          // Transpile and execute the code
-          const jsxCode = \`
-            console.log('[Sandbox/Babel] Executing widget code');
-            try {
-              // AI-generated component code
-              ${componentCode}
-
-              console.log('[Sandbox/Babel] Widget function defined');
-
-              // Data passed from parent
-              const widgetData = ${JSON.stringify(data || {})};
-              console.log('[Sandbox/Babel] Widget data:', widgetData);
-
-              // Render the widget
-              const container = document.getElementById('root');
-              const root = ReactDOM.createRoot(container);
-              root.render(React.createElement(Widget, { data: widgetData }));
-              console.log('[Sandbox/Babel] Widget rendered');
-
-              // Notify parent that widget is ready
-              window.parent.postMessage({ type: 'WIDGET_READY' }, '*');
-              console.log('[Sandbox/Babel] WIDGET_READY message sent');
-            } catch (error) {
-              console.error('[Sandbox/Babel] Widget error:', error);
-              window.parent.postMessage({
-                type: 'WIDGET_ERROR',
-                error: error.message
-              }, '*');
-
-              document.getElementById('root').innerHTML = '<div style="padding: 20px; text-align: center; color: #dc2626;"><h3>Error rendering widget</h3><p style="font-size: 14px; color: #991b1b;">' + error.message + '</p></div>';
+          React.useEffect(() => {
+            if (canvasRef.current) {
+              const ctx = canvasRef.current.getContext('2d');
+              new Chart(ctx, {
+                type: 'bar',
+                data: data,
+                options: options || {}
+              });
             }
-          \`;
+          }, [data, options]);
 
-          console.log('[Sandbox] Transpiling JSX...');
-          const transpiledCode = Babel.transform(jsxCode, { presets: ['react'] }).code;
-          console.log('[Sandbox] JSX transpiled, executing...');
+          return React.createElement('canvas', { ref: canvasRef });
+        };
 
-          eval(transpiledCode);
-        } catch (error) {
-          console.error('[Sandbox] Transpilation error:', error);
-          window.parent.postMessage({
-            type: 'WIDGET_ERROR',
-            error: 'Failed to transpile widget code: ' + error.message
-          }, '*');
+        window.LineChart = function({ data, options }) {
+          const canvasRef = React.useRef(null);
+
+          React.useEffect(() => {
+            if (canvasRef.current) {
+              const ctx = canvasRef.current.getContext('2d');
+              new Chart(ctx, {
+                type: 'line',
+                data: data,
+                options: options || {}
+              });
+            }
+          }, [data, options]);
+
+          return React.createElement('canvas', { ref: canvasRef });
+        };
+
+        window.PieChart = function({ data, options }) {
+          const canvasRef = React.useRef(null);
+
+          React.useEffect(() => {
+            if (canvasRef.current) {
+              const ctx = canvasRef.current.getContext('2d');
+              new Chart(ctx, {
+                type: 'pie',
+                data: data,
+                options: options || {}
+              });
+            }
+          }, [data, options]);
+
+          return React.createElement('canvas', { ref: canvasRef });
+        };
+
+        // Add title if provided
+        if (window.widgetTitle) {
+          const titleEl = document.createElement('h2');
+          titleEl.textContent = window.widgetTitle;
+          titleEl.style.marginBottom = '1.5rem';
+          titleEl.style.fontSize = '1.5rem';
+          titleEl.style.fontWeight = '600';
+          document.body.insertBefore(titleEl, document.getElementById('root'));
         }
+
+        // Make data available as 'data' variable for widget code
+        const data = window.widgetData;
+
+        console.log('[Sandbox] About to render with data:', {
+          type: Array.isArray(data) ? 'array' : typeof data,
+          length: Array.isArray(data) ? data.length : 'n/a',
+          keys: data && typeof data === 'object' ? Object.keys(data).slice(0, 5) : null
+        });
+
+        // Transpile and execute the widget code
+        try {
+          const widgetCode = \`${componentCode.replace(/`/g, '\\`').replace(/\$/g, '\\$')}\`;
+
+          // Check if code contains JSX (< followed by uppercase letter or common HTML tags)
+          const hasJSX = /<[A-Z]|<div|<span|<p|<h[1-6]|<table|<ul|<ol|<li/.test(widgetCode);
+
+          if (hasJSX && window.Babel) {
+            const transpiledCode = window.Babel.transform(widgetCode, {
+              presets: ['react']
+            }).code;
+
+            // Execute the transpiled code
+            eval(transpiledCode);
+
+            // Try to render the widget if a Widget component was defined
+            if (typeof Widget === 'function') {
+              const rootElement = document.getElementById('root');
+
+              // Use ReactDOM to render the component
+              if (window.ReactDOM && window.React) {
+                const element = window.React.createElement(Widget, { data: data });
+                window.ReactDOM.render(element, rootElement);
+              } else {
+                console.error('[Sandbox] React or ReactDOM not available');
+              }
+            }
+          } else {
+            // Execute directly if no JSX detected or Babel not available
+            eval(widgetCode);
+          }
+        } catch (evalError) {
+          console.error('[Sandbox] Error executing widget code:', evalError);
+          console.error('[Sandbox] Error stack:', evalError.stack);
+          throw evalError;
+        }
+
+        // Helper function to convert React elements to DOM
+        function createDOMFromReactElement(element) {
+          if (typeof element === 'string' || typeof element === 'number') {
+            return document.createTextNode(element);
+          }
+
+          if (!element || !element.type) {
+            return document.createTextNode('');
+          }
+
+          const { type, props } = element;
+
+          // Handle array of elements
+          if (Array.isArray(element)) {
+            const fragment = document.createDocumentFragment();
+            element.forEach(child => {
+              fragment.appendChild(createDOMFromReactElement(child));
+            });
+            return fragment;
+          }
+
+          const domElement = document.createElement(type);
+
+          // Set attributes
+          if (props) {
+            Object.keys(props).forEach(key => {
+              if (key === 'children') {
+                // Handle children
+                const children = Array.isArray(props.children) ? props.children : [props.children];
+                children.forEach(child => {
+                  if (child !== null && child !== undefined) {
+                    domElement.appendChild(createDOMFromReactElement(child));
+                  }
+                });
+              } else if (key === 'style' && typeof props[key] === 'object') {
+                // Handle style object
+                Object.assign(domElement.style, props[key]);
+              } else if (key === 'className') {
+                domElement.className = props[key];
+              } else if (key.startsWith('on') && typeof props[key] === 'function') {
+                // Handle events
+                const eventName = key.substring(2).toLowerCase();
+                domElement.addEventListener(eventName, props[key]);
+              } else if (typeof props[key] !== 'function' && typeof props[key] !== 'object') {
+                // Handle other attributes
+                domElement.setAttribute(key, props[key]);
+              }
+            });
+          }
+
+          return domElement;
+        }
+
+        // Notify parent that widget is ready
+        window.parent.postMessage({ type: 'WIDGET_READY' }, '*');
+
       } catch (error) {
-        console.error('[Sandbox] Setup error:', error);
+        console.error('[Sandbox] Error:', error);
         window.parent.postMessage({
           type: 'WIDGET_ERROR',
           error: error.message
         }, '*');
+
+        document.getElementById('root').innerHTML =
+          '<div style="padding: 20px; text-align: center; color: #dc2626;">' +
+          '<h3>Error rendering widget</h3>' +
+          '<p style="font-size: 14px; color: #991b1b;">' + error.message + '</p>' +
+          '</div>';
       }
     });
   </script>

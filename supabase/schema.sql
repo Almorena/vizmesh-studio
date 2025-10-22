@@ -38,10 +38,25 @@ CREATE TABLE IF NOT EXISTS data_sources (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- API Usage tracking table
+CREATE TABLE IF NOT EXISTS api_usage (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  provider TEXT NOT NULL, -- 'openai', 'anthropic', 'other'
+  model TEXT NOT NULL,
+  endpoint TEXT NOT NULL,
+  input_tokens INTEGER NOT NULL DEFAULT 0,
+  output_tokens INTEGER NOT NULL DEFAULT 0,
+  total_tokens INTEGER NOT NULL DEFAULT 0,
+  estimated_cost DECIMAL(10, 6) NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Row Level Security (RLS)
 ALTER TABLE dashboards ENABLE ROW LEVEL SECURITY;
 ALTER TABLE widgets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE data_sources ENABLE ROW LEVEL SECURITY;
+ALTER TABLE api_usage ENABLE ROW LEVEL SECURITY;
 
 -- Policies for dashboards
 CREATE POLICY "Users can view their own dashboards"
@@ -102,10 +117,21 @@ CREATE POLICY "Users can delete their own data sources"
   ON data_sources FOR DELETE
   USING (auth.uid() = user_id);
 
+-- Policies for api_usage
+CREATE POLICY "Users can view their own API usage"
+  ON api_usage FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Service can insert API usage"
+  ON api_usage FOR INSERT
+  WITH CHECK (true); -- Allow service role to insert
+
 -- Indexes for better performance
 CREATE INDEX idx_dashboards_user_id ON dashboards(user_id);
 CREATE INDEX idx_widgets_dashboard_id ON widgets(dashboard_id);
 CREATE INDEX idx_data_sources_user_id ON data_sources(user_id);
+CREATE INDEX idx_api_usage_user_id ON api_usage(user_id);
+CREATE INDEX idx_api_usage_created_at ON api_usage(created_at DESC);
 
 -- Functions
 CREATE OR REPLACE FUNCTION update_updated_at()

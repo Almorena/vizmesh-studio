@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { createServerSupabaseClient } from "@/lib/supabase/server"
+import { getClientIdFromRequest, verifyClientAccess } from "@/lib/client/verify-client-access"
 
 /**
- * GET /api/dashboards - List all dashboards for current user
+ * GET /api/dashboards - List all dashboards for current user and client
  */
 export async function GET(req: NextRequest) {
   try {
@@ -15,11 +16,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get all dashboards for user
+    // Get client_id from request
+    const clientId = getClientIdFromRequest(req)
+    if (!clientId) {
+      return NextResponse.json({ error: "Client ID required" }, { status: 400 })
+    }
+
+    // Verify user has access to this client
+    const hasAccess = await verifyClientAccess(supabase, user.id, clientId)
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Access denied to this client" }, { status: 403 })
+    }
+
+    // Get all dashboards for user and client
     const { data: dashboards, error } = await supabase
       .from("dashboards")
       .select("*")
       .eq("user_id", user.id)
+      .eq("client_id", clientId)
       .order("updated_at", { ascending: false })
 
     if (error) {
@@ -51,6 +65,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
+    // Get client_id from request
+    const clientId = getClientIdFromRequest(req)
+    if (!clientId) {
+      return NextResponse.json({ error: "Client ID required" }, { status: 400 })
+    }
+
+    // Verify user has access to this client
+    const hasAccess = await verifyClientAccess(supabase, user.id, clientId)
+    if (!hasAccess) {
+      return NextResponse.json({ error: "Access denied to this client" }, { status: 403 })
+    }
+
     const body = await req.json()
     const { name, description } = body
 
@@ -58,11 +84,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Name is required" }, { status: 400 })
     }
 
-    // Create dashboard
+    // Create dashboard with client_id
     const { data: dashboard, error } = await supabase
       .from("dashboards")
       .insert({
         user_id: user.id,
+        client_id: clientId,
         name,
         description: description || null
       })

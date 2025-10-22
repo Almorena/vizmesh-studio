@@ -18,16 +18,30 @@ interface AIChatModalProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   onWidgetGenerated: (response: GenerateWidgetResponse) => void
+  editMode?: boolean
+  existingWidget?: {
+    id: string
+    title: string
+    prompt: string
+    visualization: any
+    data_source: any
+  }
 }
 
-export function AIChatModal({ open, onOpenChange, onWidgetGenerated }: AIChatModalProps) {
+export function AIChatModal({
+  open,
+  onOpenChange,
+  onWidgetGenerated,
+  editMode = false,
+  existingWidget
+}: AIChatModalProps) {
   const [prompt, setPrompt] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      setError("Please describe what you want to visualize")
+      setError(editMode ? "Please describe what changes you want to make" : "Please describe what you want to visualize")
       return
     }
 
@@ -35,6 +49,8 @@ export function AIChatModal({ open, onOpenChange, onWidgetGenerated }: AIChatMod
     setError(null)
 
     try {
+      console.log(`[AIChatModal] ${editMode ? 'Editing' : 'Generating'} widget with prompt:`, prompt)
+
       const response = await fetch("/api/ai/generate-widget", {
         method: "POST",
         headers: {
@@ -43,26 +59,42 @@ export function AIChatModal({ open, onOpenChange, onWidgetGenerated }: AIChatMod
         body: JSON.stringify({
           prompt: prompt.trim(),
           availableDataSources: [], // TODO: Pass actual data sources
+          editMode,
+          existingWidget: editMode ? {
+            title: existingWidget?.title,
+            currentCode: existingWidget?.visualization?.componentCode,
+            dataSource: existingWidget?.data_source
+          } : undefined
         }),
       })
 
+      console.log("[AIChatModal] Response status:", response.status)
+
       if (!response.ok) {
         const errorData = await response.json()
-        throw new Error(errorData.error || "Failed to generate widget")
+        console.error("[AIChatModal] API error:", errorData)
+        throw new Error(errorData.error || `Failed to ${editMode ? 'edit' : 'generate'} widget`)
       }
 
       const data: GenerateWidgetResponse = await response.json()
+      console.log(`[AIChatModal] Widget ${editMode ? 'edited' : 'generated'} successfully:`, data)
+
+      // If in edit mode, include the widget ID in the response
+      if (editMode && existingWidget) {
+        data.widgetId = existingWidget.id
+      }
 
       onWidgetGenerated(data)
       setPrompt("")
       onOpenChange(false)
     } catch (err: any) {
-      console.error("Error generating widget:", err)
+      console.error(`[AIChatModal] Error ${editMode ? 'editing' : 'generating'} widget:`, err)
       setError(err.message || "Something went wrong. Please try again.")
     } finally {
       setLoading(false)
     }
   }
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -70,16 +102,22 @@ export function AIChatModal({ open, onOpenChange, onWidgetGenerated }: AIChatMod
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-blue-600" />
-            Create Widget with AI
+            {editMode ? `Edit Widget: ${existingWidget?.title}` : 'Create Widget with AI'}
           </DialogTitle>
           <DialogDescription>
-            Describe what you want to visualize, and AI will create it for you.
+            {editMode
+              ? 'Describe the changes you want to make to this widget.'
+              : 'Describe what you want to visualize, and AI will create it for you.'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <Textarea
-            placeholder="Example: Show me a line chart of monthly revenue trends for the last 6 months"
+            placeholder={
+              editMode
+                ? "Example: Make the news titles clickable links that open in a new tab, and add the source name in small text below each item"
+                : "Example: Show me a line chart of monthly revenue trends for the last 6 months"
+            }
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             className="min-h-[120px]"
@@ -92,12 +130,22 @@ export function AIChatModal({ open, onOpenChange, onWidgetGenerated }: AIChatMod
             </div>
           )}
 
-          <div className="rounded-lg bg-blue-50 p-4 space-y-2">
-            <p className="text-sm font-medium text-blue-900">Tips:</p>
-            <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
-              <li>Be specific about the type of chart (line, bar, pie, etc.)</li>
-              <li>Mention the data you want to visualize</li>
-              <li>Include time ranges or filters if needed</li>
+          <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+            <p className="text-sm font-medium">Tips:</p>
+            <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+              {editMode ? (
+                <>
+                  <li>Describe specific UI changes you want</li>
+                  <li>Mention styling, interactivity, or layout modifications</li>
+                  <li>Ask to add or remove specific features</li>
+                </>
+              ) : (
+                <>
+                  <li>Be specific about the type of chart (line, bar, pie, etc.)</li>
+                  <li>Mention the data you want to visualize</li>
+                  <li>Include time ranges or filters if needed</li>
+                </>
+              )}
             </ul>
           </div>
         </div>
@@ -117,12 +165,12 @@ export function AIChatModal({ open, onOpenChange, onWidgetGenerated }: AIChatMod
             {loading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Generating...
+                {editMode ? 'Updating...' : 'Generating...'}
               </>
             ) : (
               <>
                 <Sparkles className="h-4 w-4" />
-                Generate Widget
+                {editMode ? 'Update Widget' : 'Generate Widget'}
               </>
             )}
           </Button>

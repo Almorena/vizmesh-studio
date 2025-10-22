@@ -1,0 +1,39 @@
+# Environment files
+.env*.local
+.env
+
+# Documentation
+*.md
+!README.md
+
+# Scripts
+scripts/
+
+# SQL files
+*.sql
+
+# Git
+.git/
+.gitignore
+
+# Node modules
+node_modules/
+
+# Build cache
+.next/
+out/
+
+# Testing
+.coverage/
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
