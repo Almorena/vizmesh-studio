@@ -14,6 +14,18 @@ import { SpotifyIntegrationCard } from "@/components/integrations/spotify-integr
 import { generateSpotifyDataSourceConfig } from "@/lib/integrations/spotify"
 import Link from "next/link"
 
+interface FormFields {
+  provider?: string
+  clientId?: string
+  clientSecret?: string
+  apiKey?: string
+  baseUrl?: string
+  username?: string
+  password?: string
+  token?: string
+  scopes?: string
+}
+
 interface DataSource {
   id: string
   name: string
@@ -50,7 +62,7 @@ export default function IntegrationsPage() {
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   // Form fields for different auth types
-  const [formFields, setFormFields] = useState({
+  const [formFields, setFormFields] = useState<FormFields>({
     provider: "",
     clientId: "",
     clientSecret: "",
